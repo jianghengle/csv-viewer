@@ -3,6 +3,12 @@
 import Vue from 'vue'
 import App from './App'
 
+import 'vue-awesome/icons/sort-asc'
+import 'vue-awesome/icons/sort-desc'
+import 'vue-awesome/icons/plus'
+import Icon from 'vue-awesome/components/Icon'
+Vue.component('icon', Icon)
+
 Vue.config.productionTip = false
 
 /* eslint-disable no-new */

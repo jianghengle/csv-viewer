@@ -1,28 +1,46 @@
 <template>
   <div id="app">
-    <img src="./assets/logo.png">
-    <hello></hello>
+    <nav class="navbar ">
+      <div class="navbar-brand">
+        <a class="navbar-item app-name">CSV File Viewer</a>
+      </div>
+    </nav>
+    <div class="main-window">
+      <main-window></main-window>
+    </div>
   </div>
 </template>
 
 <script>
-import Hello from './components/Hello'
+import MainWindow from './components/MainWindow'
 
 export default {
   name: 'app',
   components: {
-    Hello
+    MainWindow
   }
 }
 </script>
 
-<style>
+<style lang="scss">
+@import "~bulma";
+@import "~c3/c3.css";
+
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  color: black;
+}
+
+.app-name {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.main-window {
+  padding-bottom: 10px;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 </style>
