@@ -5,14 +5,14 @@
         <div class="column">
           <input type="file" class="files-input" @change="onFileChange">
           &nbsp;&nbsp;
-          <label class="checkbox">
+          <label class="checkbox" v-if="rows.length">
             <input type="checkbox" v-model="showTable">
-            Show Table
+            Table
           </label>
           &nbsp;&nbsp;
-          <label class="checkbox">
+          <label class="checkbox" v-if="rows.length">
             <input type="checkbox" v-model="showCharts">
-            Show Charts
+            Charts
           </label>
         </div>
       </div>
@@ -21,11 +21,22 @@
     <div class="columns">
       <div class="column" v-show="showTable"
         :class="{'half-width': showTable && showCharts, 'full-width': showTable && !showCharts}">
+        <div v-if="totalCount">
+          <nav class="pagination">
+            <ul class="pagination-list">
+              <li v-show="currentPage > 0"><a class="pagination-link default-btn" @click="showPage(0)">P1</a></li>
+              <li v-show="currentPage-1 > 0"><a class="pagination-link default-btn" @click="showPage(currentPage-1)">Pre</a></li>
+              <li><a class="pagination-link is-current active-btn">{{currentRange}}</a></li>
+              <li v-show="currentPage+1 < totalPages-1"><a class="pagination-link default-btn" @click="showPage(currentPage+1)">Next</a></li>
+              <li v-show="currentPage < totalPages-1"><a class="pagination-link default-btn" @click="showPage(totalPages-1)">P{{totalPages}}</a></li>
+            </ul>
+          </nav>
+        </div>
         <div class="csv-table">
-          <table class="table is-narrow" v-if="rows.length">
+          <table class="table is-narrow" v-if="totalCount">
             <thead>
               <tr>
-                <th class="number-cell">{{rows.length}}</th>
+                <th class="number-cell">{{totalCount}}</th>
                 <th class="number-cell" v-for="(h, i) in headers">
                   <div class="csv-header" @click="sortData(i)">
                     <span>{{h}}</span>
@@ -38,7 +49,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in rows">
+              <tr v-for="(row, i) in page">
                 <td class="number-cell">{{i}}</td>
                 <td class="number-cell" v-for="cell in row">
                   {{cell}}
@@ -53,9 +64,11 @@
         :class="{'half-width': showTable && showCharts, 'full-width': !showTable && showCharts}">
         <div v-show="rows.length" class="buttons">
           <a class="button" @click="addSimpleChart"><icon name="plus"></icon>&nbsp;Simple Chart</a>
+          <a class="button" @click="addSimpleXY"><icon name="plus"></icon>&nbsp;Simple XY</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
+            v-if="c.type == 'Simple'"
             :chart="c"
             :headers="headers"
             :rows="rows"
@@ -63,6 +76,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </simple-chart>
+          <simple-xy
+            v-if="c.type == 'XY'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </simple-xy>
         </div>
       </div>
     </div>
@@ -71,11 +93,13 @@
 
 <script>
 import SimpleChart from './SimpleChart'
+import SimpleXy from './SimpleXy'
 
 export default {
   name: 'main-window',
   components: {
-    SimpleChart
+    SimpleChart,
+    SimpleXy
   },
   data () {
     return {
@@ -85,7 +109,30 @@ export default {
       rows: [],
       sortIndex: 0,
       asc: true,
-      charts: []
+      charts: [],
+      currentPage: 0,
+      pageSize: 1000
+    }
+  },
+  computed: {
+    page () {
+      var index = this.currentPage * this.pageSize
+      var page = this.rows.slice(index, index + this.pageSize)
+      return page
+    },
+    totalCount () {
+      return this.rows.length
+    },
+    totalPages () {
+      return Math.ceil(this.totalCount / this.pageSize)
+    },
+    currentRange () {
+      var start = this.currentPage * this.pageSize + 1
+      var end = (this.currentPage + 1) * this.pageSize
+      if(end > this.totalCount){
+        end = this.totalCount
+      }
+      return start + '~' + end
     }
   },
   methods: {
@@ -103,8 +150,10 @@ export default {
       var reader = new FileReader()
       reader.onload = function(e) {
         var text = reader.result
-        var lines = text.split('\n')
+        var re=/\r\n|\n\r|\n|\r/g
+        var lines = text.replace(re, '\n').split('\n')
         for(var i=0;i<lines.length;i++){
+          if(!lines[i].trim().length) continue
           var ss = lines[i].split(',')
           if(!ss.length) continue
           if(i == 0){
@@ -129,6 +178,8 @@ export default {
       }else{
         this.sortIndex = index
       }
+      console.log(this.sortIndex)
+      console.log(this.asc)
       var vm = this
       vm.rows.sort(function(a, b){
         return vm.compareData(a, b)
@@ -151,7 +202,15 @@ export default {
       var id = this.charts.length ? (this.charts[0].id + 1) : 0
       var chart = {
         id: id,
-        type: 'simple'
+        type: 'Simple'
+      }
+      this.charts.unshift(chart)
+    },
+    addSimpleXY () {
+      var id = this.charts.length ? (this.charts[0].id + 1) : 0
+      var chart = {
+        id: id,
+        type: 'XY'
       }
       this.charts.unshift(chart)
     },
@@ -160,6 +219,9 @@ export default {
       if(index > -1){
         this.charts.splice(index, 1)
       }
+    },
+    showPage(pageNumber){
+      this.currentPage = pageNumber
     }
   },
   mounted () {
@@ -177,10 +239,12 @@ export default {
 
 .full-width {
   width: 100%;
+  max-width: 100%;
 }
 
 .half-width {
   width: 50%;
+  max-width: 50%;
 }
 
 .csv-table {
@@ -203,7 +267,7 @@ export default {
 }
 
 .buttons {
-  text-align: center;
+  padding-left: 20px;
 }
 
 </style>
