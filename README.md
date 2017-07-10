@@ -1,6 +1,6 @@
 # csv-viewer
 
-> A Vue.js project
+> A Vue.js project of a CSV file viewer. You could use it to open a CSV file in browser, view the data in table and sort data by any column. You could also draw data into different kinds of charts like line, area, step, bar, pie, donat and scatter points ... (more charts is coming). [Live demo](http://cvs-viewer.s3-website-us-west-2.amazonaws.com).
 
 ## Build Setup
 
