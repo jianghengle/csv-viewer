@@ -25,6 +25,7 @@ export default {
 <style lang="scss">
 @import "~bulma";
 @import "~c3/c3.css";
+@import "~parcoord-es/dist/parcoords.css";
 
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;

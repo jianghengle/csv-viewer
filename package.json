@@ -12,6 +12,7 @@
   "dependencies": {
     "bulma": "^0.4.3",
     "c3": "^0.4.14",
+    "parcoord-es": "^1.0.1",
     "vue": "^2.3.3",
     "vue-awesome": "^2.3.1"
   },

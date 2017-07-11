@@ -65,6 +65,7 @@
         <div v-show="rows.length" class="buttons">
           <a class="button" @click="addSimpleChart"><icon name="plus"></icon>&nbsp;Simple Chart</a>
           <a class="button" @click="addSimpleXY"><icon name="plus"></icon>&nbsp;Simple XY</a>
+          <a class="button" @click="addParallelCoordinates"><icon name="plus"></icon>&nbsp;Parallel Coordinates</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
@@ -85,6 +86,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </simple-xy>
+          <parallel-coordinates
+            v-if="c.type == 'Parallel Coordinates'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </parallel-coordinates>
         </div>
       </div>
     </div>
@@ -94,12 +104,14 @@
 <script>
 import SimpleChart from './SimpleChart'
 import SimpleXy from './SimpleXy'
+import ParallelCoordinates from './ParallelCoordinates'
 
 export default {
   name: 'main-window',
   components: {
     SimpleChart,
-    SimpleXy
+    SimpleXy,
+    ParallelCoordinates
   },
   data () {
     return {
@@ -178,8 +190,6 @@ export default {
       }else{
         this.sortIndex = index
       }
-      console.log(this.sortIndex)
-      console.log(this.asc)
       var vm = this
       vm.rows.sort(function(a, b){
         return vm.compareData(a, b)
@@ -211,6 +221,14 @@ export default {
       var chart = {
         id: id,
         type: 'XY'
+      }
+      this.charts.unshift(chart)
+    },
+    addParallelCoordinates () {
+      var id = this.charts.length ? (this.charts[0].id + 1) : 0
+      var chart = {
+        id: id,
+        type: 'Parallel Coordinates'
       }
       this.charts.unshift(chart)
     },
