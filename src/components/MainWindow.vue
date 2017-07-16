@@ -63,9 +63,10 @@
       <div class="column" v-show="showCharts"
         :class="{'half-width': showTable && showCharts, 'full-width': !showTable && showCharts}">
         <div v-show="rows.length" class="buttons">
-          <a class="button" @click="addSimpleChart"><icon name="plus"></icon>&nbsp;Simple Chart</a>
-          <a class="button" @click="addSimpleXY"><icon name="plus"></icon>&nbsp;Simple XY</a>
+          <a class="button" @click="addSimpleChart"><icon name="plus"></icon>&nbsp;Simple</a>
+          <a class="button" @click="addSimpleXY"><icon name="plus"></icon>&nbsp;XY</a>
           <a class="button" @click="addParallelCoordinates"><icon name="plus"></icon>&nbsp;Parallel Coordinates</a>
+          <a class="button" @click="addPcaChart"><icon name="plus"></icon>&nbsp;PCA</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
@@ -95,6 +96,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </parallel-coordinates>
+          <pca-chart
+            v-if="c.type == 'PCA'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </pca-chart>
         </div>
       </div>
     </div>
@@ -105,13 +115,15 @@
 import SimpleChart from './SimpleChart'
 import SimpleXy from './SimpleXy'
 import ParallelCoordinates from './ParallelCoordinates'
+import PcaChart from './PcaChart'
 
 export default {
   name: 'main-window',
   components: {
     SimpleChart,
     SimpleXy,
-    ParallelCoordinates
+    ParallelCoordinates,
+    PcaChart
   },
   data () {
     return {
@@ -139,10 +151,10 @@ export default {
       return Math.ceil(this.totalCount / this.pageSize)
     },
     currentRange () {
-      var start = this.currentPage * this.pageSize + 1
-      var end = (this.currentPage + 1) * this.pageSize
-      if(end > this.totalCount){
-        end = this.totalCount
+      var start = this.currentPage * this.pageSize
+      var end = (this.currentPage + 1) * this.pageSize - 1
+      if(end > this.totalCount - 1){
+        end = this.totalCount - 1
       }
       return start + '~' + end
     }
@@ -232,6 +244,14 @@ export default {
       }
       this.charts.unshift(chart)
     },
+    addPcaChart () {
+      var id = this.charts.length ? (this.charts[0].id + 1) : 0
+      var chart = {
+        id: id,
+        type: 'PCA'
+      }
+      this.charts.unshift(chart)
+    },
     deleteChart (chart) {
       var index = this.charts.indexOf(chart)
       if(index > -1){
@@ -282,6 +302,7 @@ export default {
 
 .number-cell {
   text-align: right;
+  font-size: 14px;
 }
 
 .buttons {

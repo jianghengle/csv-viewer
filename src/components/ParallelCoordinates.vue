@@ -30,7 +30,7 @@
         <thead>
           <tr>
             <th v-for="v in variables">
-              <div>
+              <div class="number-cell">
                 {{headers[v.dataIndex]}}
               </div>
             </th>
@@ -38,7 +38,7 @@
         </thead>
         <tbody>
           <tr v-for="row in table" @mouseover="mouseoverRow(row)" @mouseout="mouseoutRow(row)">
-            <td v-for="cell in row">
+            <td v-for="cell in row" class="number-cell">
               {{cell}}
             </td>
           </tr>
@@ -181,7 +181,11 @@ export default {
     },
     sample (rows) {
       this.table = []
-      if(rows.length <= 10) return rows.slice()
+      console.log(rows.length)
+      if(rows.length <= 10) {
+        this.table = rows.slice()
+        return
+      }
       var interval = Math.floor(rows.length / 10)
       var i = 0
       while(i < rows.length){
@@ -248,6 +252,10 @@ export default {
   overflow-x: auto;
 }
 
+.number-cell {
+  text-align: right;
+  font-size: 14px;
+}
 
 
 </style>
