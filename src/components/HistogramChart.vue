@@ -251,7 +251,8 @@ export default {
             }
           }
         },
-        data: { columns: [] }
+        data: { columns: [] },
+        point: { show: false }
       })
     })
   }
