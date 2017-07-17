@@ -63,10 +63,11 @@
       <div class="column" v-show="showCharts"
         :class="{'half-width': showTable && showCharts, 'full-width': !showTable && showCharts}">
         <div v-show="rows.length" class="buttons">
-          <a class="button" @click="addSimpleChart"><icon name="plus"></icon>&nbsp;Simple</a>
-          <a class="button" @click="addSimpleXY"><icon name="plus"></icon>&nbsp;XY</a>
-          <a class="button" @click="addParallelCoordinates"><icon name="plus"></icon>&nbsp;Parallel Coordinates</a>
-          <a class="button" @click="addPcaChart"><icon name="plus"></icon>&nbsp;PCA</a>
+          <a class="button" @click="addChart('Simple')"><icon name="plus"></icon>&nbsp;Simple</a>
+          <a class="button" @click="addChart('XY')"><icon name="plus"></icon>&nbsp;XY</a>
+          <a class="button" @click="addChart('Parallel Coordinates')"><icon name="plus"></icon>&nbsp;Parallel Coordinates</a>
+          <a class="button" @click="addChart('PCA')"><icon name="plus"></icon>&nbsp;PCA</a>
+          <a class="button" @click="addChart('Histogram')"><icon name="plus"></icon>&nbsp;Histogram</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
@@ -105,6 +106,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </pca-chart>
+          <histogram-chart
+            v-if="c.type == 'Histogram'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </histogram-chart>
         </div>
       </div>
     </div>
@@ -116,6 +126,7 @@ import SimpleChart from './SimpleChart'
 import SimpleXy from './SimpleXy'
 import ParallelCoordinates from './ParallelCoordinates'
 import PcaChart from './PcaChart'
+import HistogramChart from './HistogramChart'
 
 export default {
   name: 'main-window',
@@ -123,7 +134,8 @@ export default {
     SimpleChart,
     SimpleXy,
     ParallelCoordinates,
-    PcaChart
+    PcaChart,
+    HistogramChart
   },
   data () {
     return {
@@ -220,35 +232,11 @@ export default {
       }
       return b[this.sortIndex] - a[this.sortIndex]
     },
-    addSimpleChart () {
+    addChart (type) {
       var id = this.charts.length ? (this.charts[0].id + 1) : 0
       var chart = {
         id: id,
-        type: 'Simple'
-      }
-      this.charts.unshift(chart)
-    },
-    addSimpleXY () {
-      var id = this.charts.length ? (this.charts[0].id + 1) : 0
-      var chart = {
-        id: id,
-        type: 'XY'
-      }
-      this.charts.unshift(chart)
-    },
-    addParallelCoordinates () {
-      var id = this.charts.length ? (this.charts[0].id + 1) : 0
-      var chart = {
-        id: id,
-        type: 'Parallel Coordinates'
-      }
-      this.charts.unshift(chart)
-    },
-    addPcaChart () {
-      var id = this.charts.length ? (this.charts[0].id + 1) : 0
-      var chart = {
-        id: id,
-        type: 'PCA'
+        type: type
       }
       this.charts.unshift(chart)
     },
