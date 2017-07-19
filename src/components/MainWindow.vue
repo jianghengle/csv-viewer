@@ -68,6 +68,7 @@
           <a class="button" @click="addChart('Parallel Coordinates')"><icon name="plus"></icon>&nbsp;Parallel Coordinates</a>
           <a class="button" @click="addChart('PCA')"><icon name="plus"></icon>&nbsp;PCA</a>
           <a class="button" @click="addChart('Histogram')"><icon name="plus"></icon>&nbsp;Histogram</a>
+          <a class="button" @click="addChart('Histograms')"><icon name="plus"></icon>&nbsp;Histograms</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
@@ -115,6 +116,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </histogram-chart>
+          <histogram-array
+            v-if="c.type == 'Histograms'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </histogram-array>
         </div>
       </div>
     </div>
@@ -127,6 +137,7 @@ import SimpleXy from './SimpleXy'
 import ParallelCoordinates from './ParallelCoordinates'
 import PcaChart from './PcaChart'
 import HistogramChart from './HistogramChart'
+import HistogramArray from './HistogramArray'
 
 export default {
   name: 'main-window',
@@ -135,7 +146,8 @@ export default {
     SimpleXy,
     ParallelCoordinates,
     PcaChart,
-    HistogramChart
+    HistogramChart,
+    HistogramArray
   },
   data () {
     return {

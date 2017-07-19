@@ -4,7 +4,6 @@
       <span class="chart-title">{{chart.type}} Chart {{chart.id}}</span>
       <div class="chart-options">
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="chartHeight" @change="chartHeightChanged">
-        <input class="input is-small height-input" type="text" placeholder="Y Max" v-model="yMax" @change="yMaxChanged">
       </div>
       <a class="delete delete-button" @click="deleteChart"></a>
     </div>
@@ -68,7 +67,6 @@ export default {
       names['data' + variable.index] = variable.name
       this.self.chart.data.names(names)
       this.self.chart.axis.range({
-        max: {y: 100},
         min: {y: 0}
       })
     },
