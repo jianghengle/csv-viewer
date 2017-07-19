@@ -90,7 +90,7 @@ export default {
     binsChanged () {
       this.computeHistograms()
       this.$nextTick(function(){
-        for(var i=0;i<this.self.charts.length;i++){
+        for(var i=0;i<this.variables.length;i++){
           var chart = this.self.charts[i]
           var variable = this.variables[i]
           if(!chart) continue
@@ -99,6 +99,7 @@ export default {
 
         var variable = this.variables[this.activeIndex]
         this.self.chart.load({ columns: [ variable.data ]})
+        this.self.chart.data.names({data: variable.name})
       })
     },
     loadVariables () {
@@ -116,6 +117,11 @@ export default {
           if(isNaN(value)) continue
           variable.min = variable.min === null ? value : Math.min(value, variable.min)
           variable.max = variable.max === null ? value : Math.max(value, variable.max)
+        }
+      }
+      for(var i=variables.length-1;i>=0;i--){
+        if(variables[i].max == variables[i].min){
+          variables.splice(i, 1)
         }
       }
       this.variables = variables
@@ -158,11 +164,22 @@ export default {
         }
 
         var len = this.len
-        variable.data = counts.map(function(c){
-          return c / len * 100
-        })
+        variable.data = []
+        variable.entropy = 0
+        for(var j=0;j<counts.length;j++){
+          var p = counts[j] / len
+          variable.data.push(p * 100)
+          if(p > 0){
+            variable.entropy -= p *  Math.log2(p)
+          }
+        }
+
         variable.data.unshift('data')
       }
+
+      this.variables.sort(function(a, b){
+        return b.entropy - a.entropy
+      })
     }
   },
   mounted () {
@@ -174,7 +191,6 @@ export default {
         var variable = this.variables[i]
         var chart = null
         if(variable.data){
-          this.activeIndex = i
           chart = c3.generate({
             size: { height: this.chartSize, width: this.chartSize },
             bindto: '#chart' + this.chart.id + '_' + i,
