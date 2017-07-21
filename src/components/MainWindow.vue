@@ -69,6 +69,7 @@
           <a class="button" @click="addChart('PCA')"><icon name="plus"></icon>&nbsp;PCA</a>
           <a class="button" @click="addChart('Histogram')"><icon name="plus"></icon>&nbsp;Histogram</a>
           <a class="button" @click="addChart('Histograms')"><icon name="plus"></icon>&nbsp;Histograms</a>
+          <a class="button" @click="addChart('Correlations')"><icon name="plus"></icon>&nbsp;Correlations</a>
         </div>
         <div v-for="c in charts" :key="c.id">
           <simple-chart
@@ -125,6 +126,15 @@
             :showCharts="showCharts"
             @delete-chart="deleteChart">
           </histogram-array>
+          <correlation-matrix
+            v-if="c.type == 'Correlations'"
+            :chart="c"
+            :headers="headers"
+            :rows="rows"
+            :showTable="showTable"
+            :showCharts="showCharts"
+            @delete-chart="deleteChart">
+          </correlation-matrix>
         </div>
       </div>
     </div>
@@ -138,6 +148,7 @@ import ParallelCoordinates from './ParallelCoordinates'
 import PcaChart from './PcaChart'
 import HistogramChart from './HistogramChart'
 import HistogramArray from './HistogramArray'
+import CorrelationMatrix from './CorrelationMatrix'
 
 export default {
   name: 'main-window',
@@ -147,7 +158,8 @@ export default {
     ParallelCoordinates,
     PcaChart,
     HistogramChart,
-    HistogramArray
+    HistogramArray,
+    CorrelationMatrix
   },
   data () {
     return {
