@@ -6,6 +6,17 @@
         <input class="input is-small height-input" type="text" placeholder="Size" v-model="chartSize" @change="chartSizeChanged">
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="chartHeight" @change="chartHeightChanged">
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="bins" @change="binsChanged">
+        &nbsp;
+        <label class="checkbox">
+          <input type="checkbox" v-model="sortByEntropy">
+          Sort by Entropy
+        </label>
+        &nbsp;
+        <select class="select" v-model="groupOptionIndex">
+          <option v-for="(opt, i) in groupOptions" v-bind:value="i">
+            {{opt.name}}
+          </option>
+        </select>
       </div>
       <a class="delete delete-button" @click="deleteChart"></a>
     </div>
@@ -26,7 +37,7 @@ import c3 from 'c3'
 
 export default {
   name: 'histogram-array',
-  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts'],
+  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts', 'groupOptions', 'groupColors'],
   data () {
     return {
       bins: 20,
@@ -34,7 +45,9 @@ export default {
       activeIndex: 0,
       chartHeight: 320,
       chartSize: 50,
-      variables: []
+      variables: [],
+      sortByEntropy: false,
+      groupOptionIndex: 0
     }
   },
   computed: {
@@ -53,6 +66,39 @@ export default {
       var variable = this.variables[val]
       this.self.chart.load({ columns: [ variable.data ]})
       this.self.chart.data.names({data: variable.name})
+
+      if(this.groupOptionIndex){
+        var colors = {}
+        var names = {}
+        var types = {}
+        var groupOption = this.groupOptions[this.groupOptionIndex]
+        var groupValues = Object.keys(groupOption.values)
+        for(var i=0;i<groupValues.length;i++){
+          colors['data' + i] = this.groupColors[i]
+          names['data' + i] = groupValues[i]
+          types['data' + i] = 'area-spline'
+        }
+        this.self.chart.load({ columns: variable.groupData, colors: colors, types: types })
+        this.self.chart.data.names(names)
+      }
+    },
+    sortByEntropy: function (val) {
+      if(val){
+        this.variables.sort(function(a, b){
+          return b.entropy - a.entropy
+        })
+      }else{
+        this.variables.sort(function(a, b){
+          return a.dataIndex - b.dataIndex
+        })
+      }
+      this.reloadCharts()
+    },
+    groupOptionIndex: function (val) {
+      this.computeHistograms()
+      this.$nextTick(function(){
+        this.reloadCharts()
+      })
     }
   },
   methods: {
@@ -90,17 +136,48 @@ export default {
     binsChanged () {
       this.computeHistograms()
       this.$nextTick(function(){
-        for(var i=0;i<this.variables.length;i++){
-          var chart = this.self.charts[i]
-          var variable = this.variables[i]
-          if(!chart) continue
-          chart.load({ columns: [ variable.data ]})
-        }
-
-        var variable = this.variables[this.activeIndex]
-        this.self.chart.load({ columns: [ variable.data ]})
-        this.self.chart.data.names({data: variable.name})
+        this.reloadCharts()
       })
+    },
+    reloadCharts () {
+      var colors = {}
+      var names = {}
+      var types = {}
+      if(this.groupOptionIndex){
+        var groupOption = this.groupOptions[this.groupOptionIndex]
+        var groupValues = Object.keys(groupOption.values)
+        for(var i=0;i<groupValues.length;i++){
+          colors['data' + i] = this.groupColors[i]
+          names['data' + i] = groupValues[i]
+          types['data' + i] = 'area-spline'
+        }
+      }
+
+      for(var i=0;i<this.variables.length;i++){
+        let chart = this.self.charts[i]
+        let variable = this.variables[i]
+        if(!chart) continue
+        chart.unload()
+        var vm = this
+        setTimeout(function(){
+          chart.load({ columns: [ variable.data ]})
+          if(vm.groupOptionIndex){
+            chart.load({ columns: variable.groupData, colors: colors, types: types })
+          }
+        }, 500)
+      }
+
+      this.self.chart.unload()
+      var vm = this
+      setTimeout(function(){
+        let variable = vm.variables[vm.activeIndex]
+        vm.self.chart.load({ columns: [ variable.data ]})
+        vm.self.chart.data.names({data: variable.name})
+        if(vm.groupOptionIndex){
+          vm.self.chart.load({ columns: variable.groupData, colors: colors, types: types })
+          vm.self.chart.data.names(names)
+        }
+      }, 500)
     },
     loadVariables () {
       var variables = []
@@ -127,6 +204,13 @@ export default {
       this.variables = variables
     },
     computeHistograms () {
+      var groupOption = null
+      var groupValues = null
+      if(this.groupOptionIndex){
+        groupOption = this.groupOptions[this.groupOptionIndex]
+        groupValues = Object.keys(groupOption.values)
+      }
+
       for(var i=0;i<this.variables.length;i++){
         var variable = this.variables[i]
         if(variable.min == variable.max) continue
@@ -144,6 +228,15 @@ export default {
           }
         }
 
+        var groupCounts = {}
+        if(groupOption){
+          for(var j=0;j<groupValues.length;j++){
+            var groupValue = groupValues[j]
+            groupCounts[groupValue] = counts.slice()
+          }
+        }
+
+
         for(var j=0;j<this.len;j++){
           var row = this.rows[j]
           var value = Number(row[variable.dataIndex])
@@ -153,10 +246,18 @@ export default {
             if(k == variable.bins.length-1){
               if(value >= bin[0] && value <= bin[1]){
                 counts[k] = counts[k] + 1
+                if(groupOption){
+                  var groupValue = row[groupOption.dataIndex]
+                  groupCounts[groupValue][k] = groupCounts[groupValue][k] + 1
+                }
               }
             }else{
               if(value >= bin[0] && value < bin[1]){
                 counts[k] = counts[k] + 1
+                if(groupOption){
+                  var groupValue = row[groupOption.dataIndex]
+                  groupCounts[groupValue][k] = groupCounts[groupValue][k] + 1
+                }
                 break
               }
             }
@@ -173,13 +274,29 @@ export default {
             variable.entropy -= p *  Math.log2(p)
           }
         }
-
         variable.data.unshift('data')
-      }
 
-      this.variables.sort(function(a, b){
-        return b.entropy - a.entropy
-      })
+        if(groupOption){
+          variable.groupData = []
+          for(var j=0;j<groupValues.length;j++){
+            var groupValue = groupValues[j]
+            var data = groupCounts[groupValue].map(function(c){
+              return c / len * 100
+            })
+            data.unshift('data' + j)
+            variable.groupData.push(data)
+          }
+        }
+      }
+      if(this.sortByEntropy){
+        this.variables.sort(function(a, b){
+          return b.entropy - a.entropy
+        })
+      }else{
+        this.variables.sort(function(a, b){
+          return a.dataIndex - b.dataIndex
+        })
+      }
     }
   },
   mounted () {
@@ -290,6 +407,7 @@ export default {
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .active-histogram {

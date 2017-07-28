@@ -20,7 +20,7 @@
             {{h}}
           </option>
         </select>
-        <input type="radio" v-if="v.type=='number'" :value="i" v-model="colorBy">
+        <input type="radio" :value="i" v-model="colorBy">
         &nbsp;&nbsp;
       </div>
       <a class="button is-small" @click="addVariable"><icon name="plus" scale="0.6"></icon>&nbsp;Variable</a>
@@ -54,7 +54,7 @@ import ParCoords from 'parcoord-es'
 
 export default {
   name: 'parallel-coordinates',
-  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts'],
+  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts', 'groupOptions', 'groupColors'],
   data () {
     return {
       chartHeight: 320,
@@ -152,11 +152,28 @@ export default {
     },
     color (d) {
       var v = this.variables[this.colorBy]
-      var band = d3.scale.linear()
+      var groupOption = null
+      for(var i=0;i<this.groupOptions.length;i++){
+        if(this.groupOptions[i].dataIndex == v.dataIndex){
+          groupOption = this.groupOptions[i]
+          break
+        }
+      }
+
+      var val = d[this.colorBy]
+      var c
+      if(groupOption){
+        var groupValues = Object.keys(groupOption.values)
+        var index = groupValues.indexOf(val.toString())
+        c = this.groupColors[index]
+      }else{
+        var band = d3.scale.linear()
                   .domain([v.min, v.max])
                   .range(["steelblue", "brown"])
                   .interpolate(d3.interpolateLab)
-      return band(d[this.colorBy])
+        c = band(val)
+      }
+      return c
     },
     dataIndexChanged (v) {
       this.updateData(v)
@@ -181,7 +198,6 @@ export default {
     },
     sample (rows) {
       this.table = []
-      console.log(rows.length)
       if(rows.length <= 10) {
         this.table = rows.slice()
         return

@@ -4,14 +4,11 @@
       <span class="chart-title">{{chart.type}} Chart {{chart.id}}</span>
       <div class="chart-options">
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="chartHeight" @change="chartHeightChanged">
-        <label class="checkbox">
-          <input type="checkbox" v-model="showPoints">
-          Points
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" v-model="showErrors">
-          Errors
-        </label>
+        <select class="select" v-model="groupOptionIndex" v-if="pca">
+          <option v-for="(opt, i) in groupOptions" v-bind:value="i">
+            {{opt.name}}
+          </option>
+        </select>
       </div>
       <a class="delete delete-button" @click="deleteChart"></a>
     </div>
@@ -35,7 +32,7 @@
       &nbsp;&nbsp;
       <a class="button is-small" :class="{'is-loading': computing}" v-show="showCompute" @click="computePCA">Compute</a>
     </div>
-    <div class="pca-info" v-if="groups.length">
+    <div class="pca-info" v-if="groups.length && !groupOptionIndex">
       <span v-for="(g, i) in groups">
         <label class="radio group-label">
           <input type="radio" :value="i" v-model="activeGroup">
@@ -57,7 +54,7 @@ import PCA from 'ml-pca'
 
 export default {
   name: 'pca-chart',
-  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts'],
+  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts', 'groupOptions', 'groupColors'],
   data () {
     return {
       variables: [],
@@ -74,7 +71,8 @@ export default {
       showErrors: false,
       xRange: null,
       yRange: null,
-      exportUrl: null
+      exportUrl: null,
+      groupOptionIndex: 0,
     }
   },
   watch: {
@@ -105,6 +103,13 @@ export default {
           this.self.chart.hide(['G' + i + '_error'])
         }
       }
+    },
+    groupOptionIndex: function (val) {
+      this.self.chart.unload()
+      var vm = this
+      setTimeout(function(){
+        vm.drawPCA()
+      }, 500)
     }
   },
   methods: {
@@ -129,10 +134,27 @@ export default {
       if(this.variables.length > 1){
         this.showCompute = true
       }
+      this.$nextTick(function(){
+        variable.max = null
+        variable.min = null
+        for(var i=0;i<this.rows.length;i++){
+          var row = this.rows[i]
+          var cell = Number(row[variable.dataIndex])
+          if(variable.max === null){
+            variable.max = cell
+            variable.min = cell
+          }else{
+            variable.max = Math.max(variable.max, cell)
+            variable.min = Math.min(variable.min, cell)
+          }
+        }
+      })
     },
     addVariable () {
       var variable = {
-        dataIndex: 0
+        dataIndex: 0,
+        min: 0,
+        max: this.rows.length - 1
       }
       this.variables.push(variable)
       if(this.variables.length > 1){
@@ -167,6 +189,7 @@ export default {
         var point = {}
         var rowNum = this.rows[i][0]
         point.rowNum = rowNum
+        point.index = i
         point.x = vector[0]
         point.y = vector[1]
         if(this.xRange){
@@ -206,48 +229,96 @@ export default {
         var row = this.rows[i]
         var data = []
         for(var j=0;j<this.variables.length;j++){
-          var index = this.variables[j].dataIndex
-          var cell = row[index]
-          data.push(Number(cell))
+          var variable = this.variables[j]
+          var cell = Number(row[variable.dataIndex])
+          cell = (cell - variable.min) / (variable.max - variable.min)
+          data.push(cell)
         }
         dataset.push(data)
       }
       return dataset
     },
     drawPCA () {
-      for(var i=0;i<this.groups.length;i++){
-        var points = []
-        Object.values(this.groups[i]).forEach(function(pg){
-          points = points.concat(pg)
-        })
+      if(this.groupOptionIndex){
+        this.drawPCAWithGroup()
+      }else{
+        for(var i=0;i<this.groups.length;i++){
+          var points = []
+          Object.values(this.groups[i]).forEach(function(pg){
+            points = points.concat(pg)
+          })
 
+          var xData = points.map(function(p){
+            return p.x
+          })
+          var xError = ['G'+i+'_error_x'].concat(xData)
+          xData.unshift('G'+i+'_x')
+          var yData = points.map(function(p){
+            return p.y
+          })
+          yData.unshift('G'+i)
+          var zError = points.map(function(p){
+            return p.error
+          })
+          zError.unshift('G'+i+'_error')
+          var xs = {}
+          xs['G'+i] = 'G'+i+'_x'
+          //xs['G'+i+'_error'] = 'G'+i+'_error_x'
+          this.self.chart.load({ xs: xs, columns: [ xData, yData], type: 'scatter' })
+          /*
+          if(this.showPoints){
+            this.self.chart.show(['G' + i])
+          }else{
+            this.self.chart.hide(['G' + i])
+          }
+          if(this.showErrors){
+            this.self.chart.show(['G' + i + '_error'])
+          }else{
+            this.self.chart.hide(['G' + i + '_error'])
+          }
+          */
+        }
+      }
+    },
+    drawPCAWithGroup () {
+      var allPoints = []
+      for(var i=0;i<this.groups.length;i++){
+        Object.values(this.groups[i]).forEach(function(pg){
+          allPoints = allPoints.concat(pg)
+        })
+      }
+      var groupOption = this.groupOptions[this.groupOptionIndex]
+      var groupValues = Object.keys(groupOption.values)
+      var groupPoints = {}
+      for(var i=0;i<groupValues.length;i++){
+        var groupValue = groupValues[i]
+        groupPoints[groupValue] = []
+      }
+      for(var i=0;i<allPoints.length;i++){
+        var point = allPoints[i]
+        var row = this.rows[point.index]
+        var groupValue = row[groupOption.dataIndex]
+        groupPoints[groupValue].push(point)
+      }
+      for(var i=0;i<groupValues.length;i++){
+        var groupValue = groupValues[i]
+        var points = groupPoints[groupValue]
         var xData = points.map(function(p){
           return p.x
         })
-        var xError = ['G'+i+'_error_x'].concat(xData)
-        xData.unshift('G'+i+'_x')
+        xData.unshift('data'+i+'_x')
         var yData = points.map(function(p){
           return p.y
         })
-        yData.unshift('G'+i)
-        var zError = points.map(function(p){
-          return p.error
-        })
-        zError.unshift('G'+i+'_error')
+        yData.unshift('data'+i)
         var xs = {}
-        xs['G'+i] = 'G'+i+'_x'
-        xs['G'+i+'_error'] = 'G'+i+'_error_x'
-        this.self.chart.load({ xs: xs, columns: [ xData, yData, xError, zError], type: 'scatter' })
-        if(this.showPoints){
-          this.self.chart.show(['G' + i])
-        }else{
-          this.self.chart.hide(['G' + i])
-        }
-        if(this.showErrors){
-          this.self.chart.show(['G' + i + '_error'])
-        }else{
-          this.self.chart.hide(['G' + i + '_error'])
-        }
+        xs['data' + i] = 'data' + i + '_x'
+        var colors = {}
+        colors['data' + i] = this.groupColors[i]
+        this.self.chart.load({ xs: xs, columns: [ xData, yData ], colors: colors })
+        var names = {}
+        names['data' + i] = 'G(' + groupValue + ')'
+        this.self.chart.data.names(names)
       }
     },
     rescaleChart () {
@@ -276,8 +347,16 @@ export default {
       }
     },
     unselectAll () {
-      for(var i=0;i<this.groups.length;i++){
-        this.self.chart.unselect(['G'+i, 'G'+i+'_error'])
+      if(this.groupOptionIndex){
+        var groupOption = this.groupOptions[this.groupOptionIndex]
+        var groupValues = Object.keys(groupOption.values)
+        for(var i=0;i<groupValues.length;i++){
+          this.self.chart.unselect(['data'+i])
+        }
+      }else{
+        for(var i=0;i<this.groups.length;i++){
+          this.self.chart.unselect(['G'+i, 'G'+i+'_error'])
+        }
       }
     },
     chartMouseUp () {
@@ -285,27 +364,31 @@ export default {
       setTimeout(function(){
         var selected = vm.self.chart.selected()
         if(selected.length){
-          var aGroup = vm.groups[vm.activeGroup]
-          for(var i=0;i<selected.length;i++){
-            var pt = selected[i]
-            if(pt.id.indexOf('error') > -1)
-              continue
-            var key = pt.x + '_' + pt.value
-            if(aGroup[key])
-              continue
-            for(var j=0;j<vm.groups.length;j++){
-              var g = vm.groups[j]
-              if(g[key]){
-                aGroup[key] = g[key]
-                delete g[key]
-                break;
+          if(vm.groupOptionIndex){
+            vm.unselectAll()
+          }else{
+            var aGroup = vm.groups[vm.activeGroup]
+            for(var i=0;i<selected.length;i++){
+              var pt = selected[i]
+              if(pt.id.indexOf('error') > -1)
+                continue
+              var key = pt.x + '_' + pt.value
+              if(aGroup[key])
+                continue
+              for(var j=0;j<vm.groups.length;j++){
+                var g = vm.groups[j]
+                if(g[key]){
+                  aGroup[key] = g[key]
+                  delete g[key]
+                  break;
+                }
               }
             }
+            vm.unselectAll()
+            setTimeout(function(){
+              vm.drawPCA ()
+            }, 500)
           }
-          vm.unselectAll()
-          setTimeout(function(){
-            vm.drawPCA ()
-          }, 500)
         }
       }, 500)
     },
@@ -373,11 +456,22 @@ export default {
           selection: {
             enabled: true,
             draggable: true
-          }
+          },
+          type: 'scatter'
         },
-        type: 'scatter',
         axis: {
-          x: { tick: { fit: false } }
+          x: {
+            tick: {
+              fit: false,
+              format: function (x) { return x.toPrecision(3) }
+            },
+          },
+          y: {
+            tick: {
+              fit: false,
+              format: function (y) { return y.toPrecision(3) }
+            },
+          },
         }
       })
     })

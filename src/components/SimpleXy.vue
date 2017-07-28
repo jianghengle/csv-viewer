@@ -10,6 +10,11 @@
           <option>donut</option>
         </select>
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="chartHeight" @change="chartHeightChanged">
+        <select class="select" v-model="groupOptionIndex" v-if="xys.length == 1">
+          <option v-for="(opt, i) in groupOptions" v-bind:value="i">
+            {{opt.name}}
+          </option>
+        </select>
       </div>
       <a class="delete delete-button" @click="deleteChart"></a>
     </div>
@@ -39,14 +44,16 @@ import c3 from 'c3'
 
 export default {
   name: 'simple-xy',
-  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts'],
+  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts', 'groupOptions', 'groupColors'],
   data () {
     return {
       xys: [],
       dataMap: {},
       chartType: 'line',
       chartHeight: 320,
-      self: {}
+      self: {},
+      groupOptionIndex: 0,
+      groupRows: {}
     }
   },
   watch: {
@@ -55,20 +62,72 @@ export default {
     },
     showCharts: function (val) {
       this.resizeChart()
+    },
+    groupOptionIndex: function (val) {
+      this.self.chart.unload()
+      var vm = this
+      setTimeout(function(){
+        if(val){
+          var groupOption = vm.groupOptions[vm.groupOptionIndex]
+          var groupValues = Object.keys(groupOption.values)
+          var groupRows = {}
+          for(var i=0;i<groupValues.length;i++){
+            var groupValue = groupValues[i]
+            groupRows[groupValue] = []
+          }
+          for(var i=0;i<vm.rows.length;i++){
+            var row = vm.rows[i]
+            var groupValue = row[groupOption.dataIndex]
+            groupRows[groupValue].push(row)
+          }
+          vm.groupRows = groupRows
+        }
+        for(var i=0;i<vm.xys.length;i++){
+          var xy = vm.xys[i]
+          vm.updateColumn(xy)
+        }
+      }, 500)
     }
   },
   methods: {
     updateColumn (xy) {
-      var xData = this.dataMap[xy.xIndex]
-      xData = ['data' + xy.index + '_x'].concat(xData)
-      var yData = this.dataMap[xy.yIndex]
-      yData = ['data' + xy.index].concat(yData)
-      var xs = {}
-      xs['data' + xy.index] = 'data' + xy.index + '_x'
-      this.self.chart.load({ xs: xs, columns: [ xData, yData ] })
-      var names = {}
-      names['data' + xy.index] = xy.name
-      this.self.chart.data.names(names)
+      if(this.groupOptionIndex){
+        this.updateColumnWithGroup(xy)
+      }else{
+        var xData = this.dataMap[xy.xIndex]
+        xData = ['data' + xy.index + '_x'].concat(xData)
+        var yData = this.dataMap[xy.yIndex]
+        yData = ['data' + xy.index].concat(yData)
+        var xs = {}
+        xs['data' + xy.index] = 'data' + xy.index + '_x'
+        this.self.chart.load({ xs: xs, columns: [ xData, yData ] })
+        var names = {}
+        names['data' + xy.index] = xy.name
+        this.self.chart.data.names(names)
+      }
+    },
+    updateColumnWithGroup (xy) {
+      var groupOption = this.groupOptions[this.groupOptionIndex]
+      var groupValues = Object.keys(groupOption.values)
+      for(var i=0;i<groupValues.length;i++){
+        var groupValue = groupValues[i]
+        var rows = this.groupRows[groupValue]
+        var xData = ['data' + xy.index + '_' + i + '_x']
+        var yData = ['data' + xy.index + '_' + i]
+        for(var j=0;j<rows.length;j++){
+          var row = rows[j]
+          xData.push(Number(row[xy.xIndex]))
+          yData.push(Number(row[xy.yIndex]))
+        }
+        var xs = {}
+        xs['data' + xy.index + '_' + i] = 'data' + xy.index + '_' + i + '_x'
+        var colors = {}
+        colors['data' + xy.index + '_' + i] = this.groupColors[i]
+        this.self.chart.load({ xs: xs, columns: [ xData, yData ], colors: colors })
+        var names = {}
+        names['data' + xy.index + '_' + i] = xy.name + '(' + groupValue + ')'
+        this.self.chart.data.names(names)
+      }
     },
     deleteChart () {
       this.$emit('delete-chart', this.chart)
@@ -96,7 +155,11 @@ export default {
       }
       this.xys.push(xy)
       this.loadData(xy)
-      this.updateColumn(xy)
+      if(this.xys.length > 1 && this.groupOptionIndex){
+        this.groupOptionIndex = 0
+      }else{
+        this.updateColumn(xy)
+      }
     },
     loadData (xy) {
       if(!this.dataMap[xy.xIndex]){

@@ -4,6 +4,11 @@
       <span class="chart-title">{{chart.type}} Chart {{chart.id}}</span>
       <div class="chart-options">
         <input class="input is-small height-input" type="text" placeholder="Height" v-model="chartHeight" @change="chartHeightChanged">
+        <select class="select" v-model="groupOptionIndex" v-if="variables.length == 1">
+          <option v-for="(opt, i) in groupOptions" v-bind:value="i">
+            {{opt.name}}
+          </option>
+        </select>
       </div>
       <a class="delete delete-button" @click="deleteChart"></a>
     </div>
@@ -27,7 +32,7 @@
         &nbsp;&nbsp;
       </div>
       <a class="button is-small" @click="addVariable"><icon name="plus" scale="0.6"></icon>&nbsp;Variable</a>&nbsp;&nbsp;
-      <input class="input is-small bins-input" type="text" placeholder="Bins: [,]p1,[(n),]p2...[,]" v-model="binsInput" @change="binsChanged">
+      <input class="input is-small bins-input" type="text" placeholder="Bins: [,]p1,[(space),]p2...[,]" v-model="binsInput" @change="binsChanged">
     </div>
   </div>
 </template>
@@ -37,7 +42,7 @@ import c3 from 'c3'
 
 export default {
   name: 'histogram-chart',
-  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts'],
+  props: ['chart', 'headers', 'rows', 'showTable', 'showCharts', 'groupOptions', 'groupColors'],
   data () {
     return {
       variables: [],
@@ -46,7 +51,8 @@ export default {
       binsInput: '',
       chartHeight: 320,
       yMax: 11,
-      self: {}
+      self: {},
+      groupOptionIndex: 0
     }
   },
   watch: {
@@ -56,19 +62,77 @@ export default {
     showCharts: function (val) {
       this.resizeChart()
     },
+    groupOptionIndex: function (val) {
+      this.self.chart.unload()
+      var vm = this
+      setTimeout(function(){
+        if(val){
+          var groupOption = vm.groupOptions[vm.groupOptionIndex]
+          var groupValues = Object.keys(groupOption.values)
+          var groupRows = {}
+          for(var i=0;i<groupValues.length;i++){
+            var groupValue = groupValues[i]
+            groupRows[groupValue] = []
+          }
+          for(var i=0;i<vm.rows.length;i++){
+            var row = vm.rows[i]
+            var groupValue = row[groupOption.dataIndex]
+            groupRows[groupValue].push(row)
+          }
+          vm.groupRows = groupRows
+        }
+        for(var i=0;i<vm.variables.length;i++){
+          var variable = vm.variables[i]
+          vm.updateColumn(variable)
+        }
+      }, 500)
+    }
   },
   methods: {
     updateColumn (variable) {
-      var data = this.computeHistogram(variable)
-      data = ['data' + variable.index].concat(data)
+      this.self.chart.unload()
+      var vm = this
+      setTimeout(function(){
+        var histogram
+        var data
+        if(vm.groupOptionIndex){
+          histogram = vm.computeHistogramWithGroup(variable)
+          data = histogram.data
+        }else{
+          data = vm.computeHistogram(variable)
+        }
 
-      this.self.chart.load({ columns: [ data ]})
-      var names = {}
-      names['data' + variable.index] = variable.name
-      this.self.chart.data.names(names)
-      this.self.chart.axis.range({
-        min: {y: 0}
-      })
+        data = ['data' + variable.index].concat(data)
+
+        vm.self.chart.load({ columns: [ data ]})
+        var names = {}
+        names['data' + variable.index] = variable.name
+        vm.self.chart.data.names(names)
+
+        if(vm.groupOptionIndex){
+          var columns = []
+          var colors = {}
+          var names = {}
+          var types = {}
+          var groupOption = vm.groupOptions[vm.groupOptionIndex]
+          var groupValues = Object.keys(groupOption.values)
+          for(var i=0;i<groupValues.length;i++){
+            var groupValue = groupValues[i]
+            var column = histogram.groupData[groupValue]
+            column.unshift('data' + variable.index + '_' + i)
+            columns.push(column)
+            colors['data' + variable.index + '_' + i] = vm.groupColors[i]
+            names['data' + variable.index + '_' + i] = groupValue
+            types['data' + variable.index + '_' + i] = variable.lineType
+          }
+          vm.self.chart.load({ columns: columns, colors: colors, types: types })
+          vm.self.chart.data.names(names)
+        }
+
+        vm.self.chart.axis.range({
+          min: {y: 0}
+        })
+      }, 500)
     },
     deleteChart () {
       this.$emit('delete-chart', this.chart)
@@ -88,7 +152,11 @@ export default {
       }
       this.variables.push(variable)
       this.loadData(variable)
-      this.updateColumn(variable)
+      if(this.variables.length > 1 && this.groupOptionIndex){
+        this.groupOptionIndex = 0
+      }else{
+        this.updateColumn(variable)
+      }
     },
     loadData (variable) {
       if(!this.dataMap[variable.dataIndex]){
@@ -110,6 +178,13 @@ export default {
       this.$nextTick(function(){
         var v = this.variables[variable.index]
         this.self.chart.transform(v.lineType, 'data' + v.index)
+        if(this.groupOptionIndex){
+          var groupOption = this.groupOptions[this.groupOptionIndex]
+          var groupValues = Object.keys(groupOption.values)
+          for(var i=0;i<groupValues.length;i++){
+            this.self.chart.transform(v.lineType, 'data' + v.index + '_' + i)
+          }
+        }
       })
     },
     chartHeightChanged () {
@@ -141,21 +216,26 @@ export default {
         var s = ss[i].trim()
         if(s == '') return
         if(s[0] == '(' && s[s.length-1] == ')'){
-          var n = Number(s.slice(1, -1))
-          if(n === NaN) return
+          var sp = Number(s.slice(1, -1))
+          if(sp === NaN) return
           if(i == 0 || i == ss.length - 1) return
-          if(Math.round(n) != n) return
-          if(n <= 0) return
-          if(n == 1) continue
+          if(sp <= 0) return
+
+          var scale = 1
+          while(Math.round(sp * scale) != sp * scale){
+            scale *= 10
+          }
           var min = pts[pts.length - 1]
           if(!ss[i+1].length || ss[i+1][0] == '(') return
           var max = Number(ss[i+1])
           if(max === NaN) return
           if(max <= min) return
-          var interval = (max - min) / n
-          for(var j=1;j<n;j++){
-            pts.push(min + interval*j)
+          var pt = Math.round((min + sp) * scale) / scale
+          while(pt < max){
+            pts.push(pt)
+            pt = Math.round((pt + sp) * scale) / scale
           }
+
         }else{
           var n = Number(s)
           if(n === NaN) return
@@ -220,6 +300,68 @@ export default {
       return counts.map(function(c){
         return Math.round(c / len * 10000) / 100
       })
+    },
+    computeHistogramWithGroup (variable) {
+      var counts = this.bins.map(function(b){
+        return 0
+      })
+
+      var groupOption = this.groupOptions[this.groupOptionIndex]
+      var groupValues = Object.keys(groupOption.values)
+      var groupCounts = {}
+      for(var i=0;i<groupValues.length;i++){
+        var groupValue = groupValues[i]
+        groupCounts[groupValue] = counts.slice()
+      }
+
+      for(var i=0;i<this.rows.length;i++){
+        var row = this.rows[i]
+        var d = Number(row[variable.dataIndex])
+        if(isNaN(d)) continue
+        var groupValue = row[groupOption.dataIndex]
+        for(var j=0;j<this.bins.length;j++){
+          var b = this.bins[j]
+          if(b[0] === null){
+            if(d < b[1]){
+              counts[j] = counts[j] + 1
+              groupCounts[groupValue][j] = groupCounts[groupValue][j] + 1
+              break
+            }
+          }else if(b[1] === null){
+            if(d >= b[0]){
+              counts[j] = counts[j] + 1
+              groupCounts[groupValue][j] = groupCounts[groupValue][j] + 1
+              break
+            }
+          }else{
+            if(d >= b[0] && d < b[1]){
+              counts[j] = counts[j] + 1
+              groupCounts[groupValue][j] = groupCounts[groupValue][j] + 1
+              break
+            }else if(j == this.bins.length-1 && d == b[1]){
+              counts[j] = counts[j] + 1
+              groupCounts[groupValue][j] = groupCounts[groupValue][j] + 1
+              break
+            }
+          }
+        }
+      }
+
+      var len = this.rows.length
+
+      var data = counts.map(function(c){
+        return Math.round(c / len * 10000) / 100
+      })
+
+      var groupData = {}
+      for(var i=0;i<groupValues.length;i++){
+        var groupValue = groupValues[i]
+        groupData[groupValue] = groupCounts[groupValue].map(function(c){
+          return Math.round(c / len * 10000) / 100
+        })
+      }
+
+      return {data: data, groupData: groupData}
     },
     formatXAxis (d) {
       var b = this.bins[d]

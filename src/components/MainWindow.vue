@@ -88,6 +88,8 @@
             :rows="rows"
             :showTable="showTable"
             :showCharts="showCharts"
+            :groupOptions="groupOptions"
+            :groupColors="groupColors"
             @delete-chart="deleteChart">
           </simple-xy>
           <parallel-coordinates
@@ -97,6 +99,8 @@
             :rows="rows"
             :showTable="showTable"
             :showCharts="showCharts"
+            :groupOptions="groupOptions"
+            :groupColors="groupColors"
             @delete-chart="deleteChart">
           </parallel-coordinates>
           <pca-chart
@@ -106,6 +110,8 @@
             :rows="rows"
             :showTable="showTable"
             :showCharts="showCharts"
+            :groupOptions="groupOptions"
+            :groupColors="groupColors"
             @delete-chart="deleteChart">
           </pca-chart>
           <histogram-chart
@@ -115,6 +121,8 @@
             :rows="rows"
             :showTable="showTable"
             :showCharts="showCharts"
+            :groupOptions="groupOptions"
+            :groupColors="groupColors"
             @delete-chart="deleteChart">
           </histogram-chart>
           <histogram-array
@@ -124,6 +132,8 @@
             :rows="rows"
             :showTable="showTable"
             :showCharts="showCharts"
+            :groupOptions="groupOptions"
+            :groupColors="groupColors"
             @delete-chart="deleteChart">
           </histogram-array>
           <correlation-matrix
@@ -171,7 +181,9 @@ export default {
       asc: true,
       charts: [],
       currentPage: 0,
-      pageSize: 1000
+      pageSize: 1000,
+      groupOptions: [],
+      groupColors: ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#1f77b4']
     }
   },
   computed: {
@@ -228,6 +240,34 @@ export default {
             }
             vm.rows.push(row)
           }
+        }
+
+        vm.groupOptions = []
+        if(vm.rows.length > 10){
+          for(var i=0;i<vm.headers.length;i++){
+            var opt = {name: vm.headers[i], dataIndex: i, values: {}}
+            vm.groupOptions.push(opt)
+          }
+          for(var i=0;i<vm.rows.length;i++){
+            var row = vm.rows[i]
+            for(var j=0;j<row.length;j++){
+              var value = row[j]
+              var opt = vm.groupOptions[j]
+              if(!opt.values) continue
+              if(opt.values[value]) continue
+              opt.values[value] = true
+              if(Object.keys(opt.values).length > 10){
+                opt.values = null
+              }
+            }
+          }
+          for(var i=vm.groupOptions.length-1;i>=0;i--){
+            var opt = vm.groupOptions[i]
+            if(!opt.values){
+              vm.groupOptions.splice(i, 1)
+            }
+          }
+          vm.groupOptions.unshift({name: 'none'})
         }
       }
       reader.readAsText(file)

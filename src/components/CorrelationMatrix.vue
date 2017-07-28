@@ -121,13 +121,20 @@ export default {
         for(var j=0;j<this.variables.length;j++){
           var x = this.variables[i]
           var y = this.variables[j]
-          var xySum = 0
-          var n = this.len
-          for(var k=0;k<n;k++){
-            xySum +=  x.values[k] * y.values[k]
+          if(i == j){
+            row.push({x: x, y: y, cor: 1.0, color: this.color(1.0)})
+          }else if(i > j){
+            var cor = this.matrix[j][i].cor
+            row.push({x: x, y: y, cor: cor, color: this.color(cor)})
+          }else{
+            var xySum = 0
+            var n = this.len
+            for(var k=0;k<n;k++){
+              xySum +=  x.values[k] * y.values[k]
+            }
+            var cor = (n*xySum - x.sum*y.sum) / ( Math.sqrt(n*x.sqSum - x.sum*x.sum) * Math.sqrt(n*y.sqSum - y.sum*y.sum) )
+            row.push({x: x, y: y, cor: cor, color: this.color(cor)})
           }
-          var cor = (n*xySum - x.sum*y.sum) / ( Math.sqrt(n*x.sqSum - x.sum*x.sum) * Math.sqrt(n*y.sqSum - y.sum*y.sum) )
-          row.push({x: x, y: y, cor: cor, color: this.color(cor)})
         }
         this.matrix.push(row)
       }
@@ -147,7 +154,7 @@ export default {
       var xData = ['data_x'].concat(cell.x.values)
       var data = ['data'].concat(cell.y.values)
       this.self.chart.load({ columns: [ xData, data ]})
-      var names = {'data': cell.x.name + '--' + cell.y.name}
+      var names = {'data': cell.x.name + '--' + cell.y.name + ': ' + cell.cor}
       this.self.chart.data.names(names)
     }
   },
@@ -169,7 +176,7 @@ export default {
           x: { tick: { fit: false } }
         }
       })
-      var names = {'data': cell.x.name + '--' + cell.y.name}
+      var names = {'data': cell.x.name + '--' + cell.y.name + ': ' + cell.cor}
       this.self.chart.data.names(names)
     })
   }
