@@ -144,9 +144,14 @@ export default {
         .dimensions(this.dimensions)
         .hideAxis(hideAxis)
         .composite("darker")
+        .margin({ top: 30, left: 100, bottom: 30, right: 100 })
         .render()
         .shadows()
         .brushMode("1D-axes")
+
+      this.parcoords.svg.selectAll(".dimension")
+        .selectAll(".label")
+        .style("font-size", "14px")
 
       this.parcoords.on("brush", this.onBrush)
     },

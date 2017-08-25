@@ -90,7 +90,7 @@ export default {
   },
   methods: {
     updateColumn (variable) {
-      this.self.chart.unload()
+      //this.self.chart.unload()
       var vm = this
       setTimeout(function(){
         var histogram
